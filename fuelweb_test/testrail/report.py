@@ -33,6 +33,7 @@ from settings import logger
 from settings import TestRailSettings
 from testrail_client import TestRailProject
 
+from pprint import pprint
 
 class TestResult(object):
     """TestResult."""  # TODO documentation
@@ -127,9 +128,10 @@ def get_downstream_builds(jenkins_build_data, status=None):
 
 
 def get_version(jenkins_build_data):
-    if any([artifact for artifact in jenkins_build_data['artifacts']
-            if artifact['fileName'] == JENKINS['version_artifact']]):
-        return get_version_from_artifacts(jenkins_build_data)
+    for artifact in jenkins_build_data['artifacts']:
+        print("Build filename:%s; Jenkins version:%s" % (artifact['fileName'], JENKINS['version_artifact']))
+        if artifact['fileName'] == JENKINS['version_artifact']:
+            return get_version_from_artifacts(jenkins_build_data)
     else:
         return get_version_from_parameters(jenkins_build_data)
 
@@ -517,28 +519,27 @@ def main():
     )
     parser.add_option('-j', '--job-name', dest='job_name', default=None,
                       help='Jenkins swarm runner job name')
-    parser.add_option('-N', '--build-number', dest='build_number',
-                      default='latest',
+
+    parser.add_option('-N', '--build-number', dest='build_number', default='latest',
                       help='Jenkins swarm runner build number')
-    parser.add_option('-o', '--one-job', dest='one_job_name',
-                      default=None,
-                      help=('Process only one job name from the specified '
-                            'parent job or view'))
+
+    parser.add_option('-o', '--one-job', dest='one_job_name', default=None,
+                      help=('Process only one job name from the specified parent job or view'))
+
     parser.add_option("-w", "--view", dest="jenkins_view", default=False,
                       help="Get system tests jobs from Jenkins view")
+
     parser.add_option("-l", "--live", dest="live_report", action="store_true",
                       help="Get tests results from running swarm")
+
     parser.add_option("-m", "--manual", dest="manual_run", action="store_true",
                       help="Manually add tests cases to TestRun (tested only)")
-    parser.add_option("-s", "--statistics", action="store_true",
-                      dest="bug_statistics", default=False,
-                      help="Make a statistics for bugs linked to TestRail for "
-                      "the test run")
-    parser.add_option('-c', '--create-plan-only', action="store_true",
-                      dest="create_plan_only", default=False,
-                      help='Jenkins swarm runner job name')
-    parser.add_option("-v", "--verbose",
-                      action="store_true", dest="verbose", default=False,
+
+    parser.add_option("-s", "--statistics", action="store_true", dest="bug_statistics", default=False,
+                      help="Make a statistics for bugs linked to TestRail for the test run")
+    parser.add_option('-c', '--create-plan-only', action="store_true", dest="create_plan_only", default=False,
+                      help='???')  # FIXME: Place description here
+    parser.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False,
                       help="Enable debug output")
 
     (options, args) = parser.parse_args()
@@ -558,6 +559,9 @@ def main():
                               project=TestRailSettings.project)
 
     tests_suite = project.get_suite_by_name(TestRailSettings.tests_suite)
+    print("Project TestRail configs")
+    pprint(project.get_configs())
+    return
     operation_systems = [{'name': config['name'], 'id': config['id'],
                          'distro': config['name'].split()[0].lower()}
                          for config in project.get_config_by_name(
@@ -606,11 +610,14 @@ def main():
                 is_running_builds = True
                 continue
         for os in tests_results.keys():
+            pprint(systest_build['name'])
             if os in systest_build['name'].lower():
                 tests_results[os].extend(get_tests_results(systest_build, os))
 
     # STEP #3
     # Create new TestPlan in TestRail (or get existing) and add TestRuns
+    print("Jenkins build data:")
+    # pprint(runner_build.build_data)
     milestone, iso_number, prefix = get_version(runner_build.build_data)
     milestone = project.get_milestone_by_name(name=milestone)
 
@@ -665,6 +672,8 @@ def main():
                                               in operation_systems],
                                   runs=plan_entries):
             test_plan = project.get_plan(test_plan['id'])
+
+    return
 
     # STEP #4
     # Upload tests results to TestRail

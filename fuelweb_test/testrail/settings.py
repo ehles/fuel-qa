@@ -12,63 +12,148 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
 import os
+import sys
+import logging
+from metayaml import read
 
-logger = logging.getLogger(__package__)
-ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-logger.setLevel(logging.INFO)
 
-LOGS_DIR = os.environ.get('LOGS_DIR', os.getcwd())
+def get_environment_params(conf, env2conf):
+    for k, v in env2conf.iteritems():
+        path = v.split('.')
+        container = reduce(lambda d, key: d.get(key), path[:-1], conf)
+        print("Containder:%s" % container)
+        new_value = os.environ.get(k)
+        if new_value:
+            print("\tNew value:%s" % new_value)
+            try:
+                container[path[-1]] = new_value
+            except TypeError:
+                return False
+    return True
 
-os.environ["ENV_NAME"] = "some_environment"
-os.environ["ISO_PATH"] = "./fuel.iso"
 
-JENKINS = {
-    'url': os.environ.get('JENKINS_URL', 'http://localhost/'),
-    'version_artifact': os.environ.get('JENKINS_VERSION_ARTIFACT',
-                                       'version.yaml.txt')
+def get_logger():
+    logger = logging.getLogger(__package__)
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    logger.setLevel(logging.INFO)
+    return logger
+
+# Read configuration
+conf = read(["config.yaml"])
+
+# Prepare logger
+logger = get_logger()
+
+environment2configuration = {
+    # Environment variables to configuration mapping
+    'JENKINS_URL': 'jenkins.url',
+    'JENKINS_VERSION_ARTIFACT': 'jenkins.version_artifact',
+
+    'LAUNCHPAD_PROJECT': 'launchpad.project',
+    'LAUNCHPAD_MILESTONE': 'launchpad.milestone',
+
+    'TESTRAIL_URL': 'testrail.url',
+    'TESTRAIL_USER': 'testrail.user',
+    'TESTRAIL_PASSWORD': 'testrail.password',
+    'TESTRAIL_PROJECT': 'testrail.project',
+    'TESTRAIL_MILESTONE': 'testrail.milestone',
+    'TESTRAIL_TEST_SUITE': 'testrail.test_suite',
+    'TESTRAIL_TEST_SECTION': 'testrail.test_section',
+    'TESTRAIL_TEST_INCLUDE': 'testrail.test_include',
+    'TESTRAIL_TEST_EXCLUDE': 'testrail.test_exclude',
+    'TESTRAIL_TESTS_DEPTH': 'testrail.previous_results_depth',
+    'TESTRAIL_OPERATING_SYSTEMS': 'testrail.operating_systems',
+
+    'LOGS_DIR': 'other.log_dir'
 }
 
-GROUPS_TO_EXPAND = [
-    'setup_master', 'prepare_release', 'prepare_slaves_1', 'prepare_slaves_3',
-    'prepare_slaves_5', 'prepare_slaves_9']
+
+if not get_environment_params(conf, environment2configuration):
+    sys.exit(1)
+
+from pprint import pprint
+pprint(conf)
+sys.exit(0)
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+# python ./report.py -v -l -j "7.0.contrail.3.0"
+# job_name = '7.0.contrail.3.0.build'
+# url = 'http://jenkins-tpi.bud.mirantis.net:8080/'
+
+# config = {
+#     'TESTRAIL_PROJECT': 'Contrail plugin',
+#     'TESTRAIL_URL': 'https://mirantis.testrail.com',
+#     'TESTRAIL_TEST_SUITE': 'Contrail Plugin v2.x.x',
+#
+#     # 'TESTRAIL_USER': 'all@mirantis.com',
+#     # 'TESTRAIL_PASSWORD': 'mirantis1C@@L',
+#     'TESTRAIL_USER': 'okosse@mirantis.com',
+#     'TESTRAIL_PASSWORD': 'Y9DOHCFV9PPIM2mySAxn',
+#
+#     # 'JENKINS_URL': 'http://jenkins-product.srt.mirantis.net:8080/',
+#     'JENKINS_URL': 'http://jenkins-tpi.bud.mirantis.net:9090/',
+#     # 'JENKINS_URL': 'https://product-ci.infra.mirantis.net',
+#
+#     # python ./report.py -v -l -j "systest.vcenter"
+# }
+#
+#
+# os.environ.update(config)
+# os.environ["ENV_NAME"] = "some_environment"
+# os.environ["ISO_PATH"] = "./fuel.iso"
 
 
-class LaunchpadSettings(object):
-    """LaunchpadSettings."""  # TODO documentation
-
-    project = os.environ.get('LAUNCHPAD_PROJECT', 'fuel')
-    milestone = os.environ.get('LAUNCHPAD_MILESTONE', '9.0')
-    closed_statuses = [
-        os.environ.get('LAUNCHPAD_RELEASED_STATUS', 'Fix Released'),
-        os.environ.get('LAUNCHPAD_INVALID_STATUS', 'Invalid')
-    ]
 
 
-class TestRailSettings(object):
-    """TestRailSettings."""  # TODO documentation
+# JENKINS = {
+#     'url': os.environ.get('JENKINS_URL', 'http://localhost/'),
+#     'version_artifact': os.environ.get('JENKINS_VERSION_ARTIFACT',
+#                                        'version.yaml.txt')
+# }
 
-    url = os.environ.get('TESTRAIL_URL', 'https://mirantis.testrail.com')
-    user = os.environ.get('TESTRAIL_USER', 'user@example.com')
-    password = os.environ.get('TESTRAIL_PASSWORD', 'password')
-    project = os.environ.get('TESTRAIL_PROJECT', 'Mirantis OpenStack')
-    milestone = os.environ.get('TESTRAIL_MILESTONE', '9.0')
-    tests_suite = os.environ.get('TESTRAIL_TEST_SUITE',
-                                 '[{0}] Swarm'.format(milestone))
-    tests_section = os.environ.get('TESTRAIL_TEST_SECTION', 'All')
-    tests_include = os.environ.get('TESTRAIL_TEST_INCLUDE', None)
-    tests_exclude = os.environ.get('TESTRAIL_TEST_EXCLUDE', None)
-    previous_results_depth = os.environ.get('TESTRAIL_TESTS_DEPTH', 5)
-    operation_systems = []
-    centos_enabled = os.environ.get('USE_CENTOS', 'false') == 'true'
-    ubuntu_enabled = os.environ.get('USE_UBUNTU', 'true') == 'true'
-    if centos_enabled:
-        operation_systems.append(os.environ.get(
-            'TESTRAIL_CENTOS_RELEASE', 'Centos 6.5'))
-    if ubuntu_enabled:
-        operation_systems.append(os.environ.get(
-            'TESTRAIL_UBUNTU_RELEASE', 'Ubuntu 14.04'))
+# GROUPS_TO_EXPAND = [
+#     'setup_master',
+#     'prepare_release',
+#     'prepare_slaves_1',
+#     'prepare_slaves_3',
+#     'prepare_slaves_5',
+#     'prepare_slaves_9']
+#
+
+# class LaunchpadSettings(object):
+#     """LaunchpadSettings."""  # TODO documentation
+#
+#     project = os.environ.get('LAUNCHPAD_PROJECT', 'fuel')
+#     milestone = os.environ.get('LAUNCHPAD_MILESTONE', '8.0')
+#     # closed_statuses = [
+#     #     os.environ.get('LAUNCHPAD_RELEASED_STATUS', 'Fix Released'),
+#     #     os.environ.get('LAUNCHPAD_INVALID_STATUS', 'Invalid')
+#     # ]
+
+
+# class TestRailSettings(object):
+#     """TestRailSettings."""  # TODO documentation
+#
+#     url = os.environ.get('TESTRAIL_URL', 'https://mirantis.testrail.com')
+#     user = os.environ.get('TESTRAIL_USER', 'user@example.com')
+#     password = os.environ.get('TESTRAIL_PASSWORD', 'password')
+#     project = os.environ.get('TESTRAIL_PROJECT', 'Mirantis OpenStack')
+#     milestone = os.environ.get('TESTRAIL_MILESTONE', '8.0')
+#     tests_suite = os.environ.get('TESTRAIL_TEST_SUITE', '[{0}] Swarm'.format(milestone))
+#     tests_section = os.environ.get('TESTRAIL_TEST_SECTION', 'All')
+#     tests_include = os.environ.get('TESTRAIL_TEST_INCLUDE', None)
+#     tests_exclude = os.environ.get('TESTRAIL_TEST_EXCLUDE', None)
+#     previous_results_depth = os.environ.get('TESTRAIL_TESTS_DEPTH', 5)
+#     operation_systems = []
+#     centos_enabled = os.environ.get('USE_CENTOS', 'false') == 'true'
+#     ubuntu_enabled = os.environ.get('USE_UBUNTU', 'true') == 'true'
+#     if centos_enabled:
+#         operation_systems.append(os.environ.get('TESTRAIL_CENTOS_RELEASE', 'Centos 6.5'))
+#     if ubuntu_enabled:
+#         operation_systems.append(os.environ.get('TESTRAIL_UBUNTU_RELEASE', 'Ubuntu 14.04'))

@@ -1,0 +1,37 @@
+jenkins:
+  url: 'http://jenkins.domain.com'
+  version_artifact: 'version.yaml.txt'
+
+testrail:
+  url: 'http://mirantis.testrail.com'
+  project: 'Contrail plugin'
+  test_suite: 'Contrail Plugin v2.x.x'
+  user: 'user@example.com'
+  password: 'password'
+  milestone: '8.0'
+  test_suite: '${milestone} Swarm'
+  test_section: 'All'
+  test_include: null
+  test_exclude: null
+  previous_results_depth: 5
+  operating_systems:
+    centos: 'Centos 6.5'
+    ubuntu: 'Ubuntu 14.04'
+
+launchpad:
+    project: 'fuel'
+    milestone: '8.0'
+    release_statuses:
+      released: 'Fix Released'
+      invalid: 'Invalid'
+
+other:
+  log_dir: /var/log/jenkins2testrail.log
+  expand_groups:
+    - setup_master
+    - prepare_release
+    - prepare_slaves_1
+    - prepare_slaves_3
+    - prepare_slaves_5
+    - prepare_slaves_9
+
