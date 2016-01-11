@@ -1,6 +1,9 @@
 jenkins:
   url: 'http://jenkins.domain.com'
   version_artifact: 'version.yaml.txt'
+#  version_artifacts:
+#    'build.properties': 'txt'
+#    'version.yaml': 'yaml'
 
 testrail:
   url: 'http://mirantis.testrail.com'
@@ -8,7 +11,7 @@ testrail:
   password: 'password'
   project: 'Contrail plugin'
   test_suite: 'Contrail Plugin v2.x.x'
-  milestone: '8.0'
+  milestone: '7.0'
   test_suite: '${testrail.milestone} Swarm'
   test_section: 'All'
   test_include: null
@@ -28,7 +31,17 @@ launchpad:
       invalid: 'Invalid'
 
 test_result:
-  tmpl_test_plan_name: '%(TEST_GROUP)s--%(BUILD_ID)s--%(TEST_GROUP)s'
+#  tmpl_test_plan_name: '%(artifacts.build.TEST_GROUP)s--%(artifacts.build.BUILD_ID)s--%(artifacts.nightly.BUILD_DISPLAY_NAME)s'
+  tmpl_test_plan_name: 'Contrail Plugin v3.0.0 ISO#7.0-301 RPM#31'
+#  tmpl_milestone: '%(artifacts.build.milestone)s'
+  tmpl_milestone: 'Fuel Contrail Plugin v3.0.0'
+  tmpl_iso_number: '7.0-301'
+  info_sources:
+    artifacts:
+      'build.properties': 'build'
+      'nightly.properties': 'nightly'
+
+
 
 other:
   log_level: DEBUG

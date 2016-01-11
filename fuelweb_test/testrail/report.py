@@ -129,14 +129,51 @@ def get_downstream_builds(jenkins_build_data, status=None):
              'result': b['result']} for b in jenkins_build_data['subBuilds']]
 
 
-def get_version(jenkins_build_data):
-    for artifact in jenkins_build_data['artifacts']:
-        print("Build filename:%s; Jenkins version:%s" % (artifact['fileName'], JENKINS['version_artifact']))
-        if artifact['fileName'] == JENKINS['version_artifact']:
-            return get_version_from_artifacts(jenkins_build_data)
-    else:
-        return get_version_from_parameters(jenkins_build_data)
+def get_test_run_info(jenkins_build_data):
+    build_info = {}
+    for info_source, info_source_data in conf['test_result']['info_sources'].items():
+        logger.debug("Build info sources: source:%s; data:%s" % (info_source, info_source_data))
+        if info_source == 'artifacts':
+            for build_artifact in jenkins_build_data['artifacts']:
+                print("Build filename:%s" % build_artifact['fileName'])
+                filename = build_artifact['fileName']
+                if filename in info_source_data:  # JENKINS['version_artifact']:
+                    for key, value in get_build_data_from_artifacts(jenkins_build_data, filename).items():
+                        build_info['%s.%s.%s' % (info_source, info_source_data[filename], key)] = value
+        elif info_source == 'environment':
+            # FIXME: Add processing 'environment' varibles from jenkins
+            pass
+        elif info_source == 'parameters':
+            # FIXME: Add processing job 'parameters' from jenkins
+            milestone, iso_number, prefix = get_version_from_parameters(jenkins_build_data)
+            build_info[info_source]['milestone'] = milestone
+            build_info[info_source]['iso_number'] = iso_number
+            build_info[info_source]['prefix'] = prefix
+    return build_info
 
+
+def render_test_result_tmpl(build_info, tmpl):
+    return str(tmpl) % build_info
+
+
+# def get_version(jenkins_build_data):
+#     for artifact in jenkins_build_data['artifacts']:
+#         print("Build filename:%s; Jenkins version:%s" % (artifact['fileName'], JENKINS['version_artifact']))
+#         if artifact['fileName'] == JENKINS['version_artifact']:
+#             return get_version_from_artifacts(jenkins_build_data)
+#     else:
+#         return get_version_from_parameters(jenkins_build_data)
+
+
+def get_build_data_from_artifacts(jenkins_build_data, filename):
+    artifact_data = get_build_artifact(url=jenkins_build_data['url'],
+                                       artifact=filename)
+    try:
+        artifact_info = yaml.load(artifact_data)
+    except yaml.scanner.ScannerError:
+        # Parse and load 'key=value' file to dictionary
+        artifact_info = dict([key_value.split('=') for key_value in artifact_data.split('\n') if '=' in key_value])
+    return artifact_info
 
 def get_job_parameter(jenkins_build_data, parameter):
     parameters = [a['parameters'] for a in jenkins_build_data['actions']
@@ -175,15 +212,6 @@ def get_version_from_parameters(jenkins_build_data):
         return (TestRailSettings.milestone,
                 time.strftime("%D %H:%M", time.localtime(swarm_timestamp)),
                 custom_version)
-
-
-def get_version_from_artifacts(jenkins_build_data):
-    version = yaml.load(get_build_artifact(
-        url=jenkins_build_data['url'], artifact=JENKINS['version_artifact']))
-    return version['VERSION']['release'], \
-        int(version['VERSION']['build_number']), \
-        ''
-
 
 def expand_test_group(group, systest_build_name, os):
     """Expand specified test names with the group name of the job
@@ -631,12 +659,16 @@ def main():
     # Create new TestPlan in TestRail (or get existing) and add TestRuns
     print("Jenkins build data:")
     # pprint(runner_build.build_data)
-    milestone, iso_number, prefix = get_version(runner_build.build_data)
+    # milestone, iso_number, prefix = get_version(runner_build.build_data)
+    test_run_info = get_test_run_info(runner_build.build_data)
+    milestone = render_test_result_tmpl(test_run_info, conf['test_result']['tmpl_milestone'])
     milestone = project.get_milestone_by_name(name=milestone)
 
-    test_plan_name = ' '.join(
-        filter(lambda x: bool(x),
-               (milestone['name'], prefix, 'iso', '#' + str(iso_number))))
+    # test_plan_name = ' '.join(
+    #         filter(lambda x: bool(x),
+    #            (milestone['name'], prefix, 'iso', '#' + str(iso_number))))
+    test_plan_name = render_test_result_tmpl(test_run_info, conf['test_result']['tmpl_test_plan_name'])
+    iso_number = render_test_result_tmpl(test_run_info, conf['test_result']['tmpl_iso_number'])
 
     test_plan = project.get_plan_by_name(test_plan_name)
     iso_link = '/'.join([JENKINS['url'], 'job',
@@ -669,7 +701,7 @@ def main():
                 name='{suite_name}'.format(suite_name=tests_suite['name']),
                 suite_id=tests_suite['id'],
                 milestone_id=milestone['id'],
-                description='Results of system tests ({tests_suite}) on is'
+                description='Results of tests ({tests_suite}) on is'
                 'o #"{iso_number}"'.format(tests_suite=tests_suite['name'],
                                            iso_number=iso_number),
                 config_ids=[os['id']],
@@ -678,8 +710,7 @@ def main():
             )
         )
 
-    if not any(entry['suite_id'] == tests_suite['id']
-               for entry in test_plan['entries']):
+    if not any(entry['suite_id'] == tests_suite['id'] for entry in test_plan['entries']):
         if project.add_plan_entry(plan_id=test_plan['id'],
                                   suite_id=tests_suite['id'],
                                   config_ids=[os['id'] for os
@@ -687,11 +718,14 @@ def main():
                                   runs=plan_entries):
             test_plan = project.get_plan(test_plan['id'])
 
-    return
 
     # STEP #4
     # Upload tests results to TestRail
     logger.info('Uploading tests results to TestRail...')
+    return
+
+
+
     for os in operation_systems:
         logger.info('Checking tests results for "{0}"...'.format(os['name']))
         results_to_publish = publish_results(
