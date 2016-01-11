@@ -4,20 +4,22 @@ jenkins:
 
 testrail:
   url: 'http://mirantis.testrail.com'
+  username: 'user@example.com'
+  password: 'password'
   project: 'Contrail plugin'
   test_suite: 'Contrail Plugin v2.x.x'
-  user: 'user@example.com'
-  password: 'password'
   milestone: '8.0'
-  test_suite: '${milestone} Swarm'
+  test_suite: '${testrail.milestone} Swarm'
   test_section: 'All'
   test_include: null
   test_exclude: null
   previous_results_depth: 5
+  suite_configurations:
+    'Contrail distributor':
+      - 'Juniper contrail'
   operating_systems:
     centos: 'Centos 6.5'
     ubuntu: 'Ubuntu 14.04'
-
 launchpad:
     project: 'fuel'
     milestone: '8.0'
@@ -25,7 +27,11 @@ launchpad:
       released: 'Fix Released'
       invalid: 'Invalid'
 
+test_result:
+  tmpl_test_plan_name: '%(TEST_GROUP)s--%(BUILD_ID)s--%(TEST_GROUP)s'
+
 other:
+  log_level: DEBUG
   log_dir: /var/log/jenkins2testrail.log
   expand_groups:
     - setup_master

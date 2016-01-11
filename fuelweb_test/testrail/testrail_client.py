@@ -13,8 +13,8 @@
 #    under the License.
 
 from settings import logger
-from testrail import APIClient
-from testrail import APIError
+from testrail_api import APIClient
+from testrail_api import APIError
 
 
 class TestRailProject(object):
@@ -80,6 +80,7 @@ class TestRailProject(object):
         for config in self.get_configs():
             if config['name'] == name:
                 return config
+        return {}
 
     def get_priorities(self):
         priorities_uri = 'get_priorities'

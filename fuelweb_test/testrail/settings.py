@@ -19,6 +19,8 @@ from metayaml import read
 
 
 def get_environment_params(conf, env2conf):
+    """ Update configuration parameters with values from environment variables.
+    """
     for k, v in env2conf.iteritems():
         path = v.split('.')
         container = reduce(lambda d, key: d.get(key), path[:-1], conf)
@@ -39,12 +41,17 @@ def get_logger():
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
     logger.addHandler(ch)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(conf['other']['log_level'])
     return logger
 
 # Read configuration
-conf = read(["config.yaml"])
+configs = ["config.yaml"]
+local_conf = os.environ.get("LOCAL_CONF", None)
+if local_conf:
+    configs.append(local_conf)
+conf = read(configs)
 
+print(local_conf)
 # Prepare logger
 logger = get_logger()
 
@@ -57,7 +64,7 @@ environment2configuration = {
     'LAUNCHPAD_MILESTONE': 'launchpad.milestone',
 
     'TESTRAIL_URL': 'testrail.url',
-    'TESTRAIL_USER': 'testrail.user',
+    'TESTRAIL_USER': 'testrail.username',
     'TESTRAIL_PASSWORD': 'testrail.password',
     'TESTRAIL_PROJECT': 'testrail.project',
     'TESTRAIL_MILESTONE': 'testrail.milestone',
@@ -75,9 +82,69 @@ environment2configuration = {
 if not get_environment_params(conf, environment2configuration):
     sys.exit(1)
 
+# -----------------------------------------------------------------------------
+# FIXME: Refactor code below: remove classes and use 'conf' variable for configuration parameters
+# -----------------------------------------------------------------------------
+
+
+class LaunchpadSettings(object):
+    """LaunchpadSettings."""  # TODO documentation
+
+    project = conf['launchpad']['project']  # os.environ.get('LAUNCHPAD_PROJECT', 'fuel')
+    milestone = conf['launchpad']['milestone']  # os.environ.get('LAUNCHPAD_MILESTONE', '8.0')
+
+    # closed_statuses = [
+    #     os.environ.get('LAUNCHPAD_RELEASED_STATUS', 'Fix Released'),
+    #     os.environ.get('LAUNCHPAD_INVALID_STATUS', 'Invalid')
+    # ]
+
+
+class TestRailSettings(object):
+    """TestRailSettings."""  # TODO documentation
+    section = 'testrail'
+
+    url = conf[section]['url']  # os.environ.get('TESTRAIL_URL', 'https://mirantis.testrail.com')
+    user = conf[section]['username']  # os.environ.get('TESTRAIL_USER', 'user@example.com')
+    password = conf[section]['password']  # os.environ.get('TESTRAIL_PASSWORD', 'password')
+    project = conf[section]['project']  # os.environ.get('TESTRAIL_PROJECT', 'Mirantis OpenStack')
+    milestone = conf[section]['milestone']  # os.environ.get('TESTRAIL_MILESTONE', '8.0')
+    tests_suite = conf[section]['test_suite']  # os.environ.get('TESTRAIL_TEST_SUITE', '[{0}] Swarm'.format(milestone))
+    tests_section = conf[section]['test_section']  # os.environ.get('TESTRAIL_TEST_SECTION', 'All')
+    tests_include = conf[section]['test_include']  # os.environ.get('TESTRAIL_TEST_INCLUDE', None)
+    tests_exclude = conf[section]['test_exclude']  # os.environ.get('TESTRAIL_TEST_EXCLUDE', None)
+    previous_results_depth = conf[section]['previous_results_depth']  # os.environ.get('TESTRAIL_TESTS_DEPTH', 5)
+    operating_systems = conf[section]['operating_systems']  # []
+
+    # centos_enabled = os.environ.get('USE_CENTOS', 'false') == 'true'
+    # ubuntu_enabled = os.environ.get('USE_UBUNTU', 'true') == 'true'
+    # if centos_enabled:
+    #     operation_systems.append(os.environ.get('TESTRAIL_CENTOS_RELEASE', 'Centos 6.5'))
+    # if ubuntu_enabled:
+    #     operation_systems.append(os.environ.get('TESTRAIL_UBUNTU_RELEASE', 'Ubuntu 14.04'))
+
+JENKINS = {
+    # os.environ.get('JENKINS_URL', 'http://localhost/'),
+    'url': conf['jenkins']['url'],
+
+    # os.environ.get('JENKINS_VERSION_ARTIFACT', 'version.yaml.txt')
+    'version_artifact': conf['jenkins']['version_artifact']
+}
+
+GROUPS_TO_EXPAND = conf['other']['expand_groups']
+    # ['setup_master',
+    #  'prepare_release',
+    #  'prepare_slaves_1',
+    #  'prepare_slaves_3',
+    #  'prepare_slaves_5',
+    #  'prepare_slaves_9']
+
+
+
 from pprint import pprint
 pprint(conf)
-sys.exit(0)
+
+
+
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################

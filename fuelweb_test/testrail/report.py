@@ -31,9 +31,11 @@ from settings import GROUPS_TO_EXPAND
 from settings import LaunchpadSettings
 from settings import logger
 from settings import TestRailSettings
+from settings import conf
 from testrail_client import TestRailProject
 
 from pprint import pprint
+
 
 class TestResult(object):
     """TestResult."""  # TODO documentation
@@ -561,12 +563,25 @@ def main():
     tests_suite = project.get_suite_by_name(TestRailSettings.tests_suite)
     print("Project TestRail configs")
     pprint(project.get_configs())
-    return
-    operation_systems = [{'name': config['name'], 'id': config['id'],
-                         'distro': config['name'].split()[0].lower()}
-                         for config in project.get_config_by_name(
-                             'Operation System')['configs'] if
-                         config['name'] in TestRailSettings.operation_systems]
+
+    # operation_systems = [{'name': config['name'], 'id': config['id'],
+    #                      'distro': config['name'].split()[0].lower()}
+    #
+    #                      for config in project.get_config_by_name(
+    #                          'Operation System')['configs']
+    #                      if config['name'] in TestRailSettings.operation_systems]
+
+    operation_systems = []
+    for suite_configuration in conf['testrail']['suite_configurations'].keys():
+        for config in project.get_config_by_name(suite_configuration).get('configs', []):
+            #  if config['name'] in TestRailSettings.operation_systems:
+            if config['name'] in conf['testrail']['suite_configurations'][suite_configuration]:
+                operation_systems.append({
+                    'name': config['name'],
+                    'id': config['id'],
+                    'distro': config['name'].split()[0].lower()})
+
+
     tests_results = {os['distro']: [] for os in operation_systems}
 
     # STEP #2
@@ -589,7 +604,6 @@ def main():
         return
 
     is_running_builds = False
-
     for systest_build in tests_jobs:
         if (options.one_job_name and
                 options.one_job_name != systest_build['name']):
@@ -613,7 +627,6 @@ def main():
             pprint(systest_build['name'])
             if os in systest_build['name'].lower():
                 tests_results[os].extend(get_tests_results(systest_build, os))
-
     # STEP #3
     # Create new TestPlan in TestRail (or get existing) and add TestRuns
     print("Jenkins build data:")
@@ -629,6 +642,7 @@ def main():
     iso_link = '/'.join([JENKINS['url'], 'job',
                          '{0}.all'.format(milestone['name']), str(iso_number)])
     if not test_plan:
+        return ''
         test_plan = project.add_plan(test_plan_name,
                                      description=iso_link,
                                      milestone_id=milestone['id'],
